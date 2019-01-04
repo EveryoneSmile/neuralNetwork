@@ -1,0 +1,45 @@
+def relprop(A2,A1,W):
+        V = np.maximum(0,W)#####W+
+        Z = np.dot(A1,V)+1e-9
+        S = A2/Z
+        C = np.dot(S,V.T);         
+        R = A1*C
+        return R
+def relprop0(A2,A1,W):
+    lowest =0
+    highest =1
+    W,V,U = W,np.maximum(0,W),np.minimum(0,W)
+    X,L,H = A1,A1*0+lowest,A1*0+highest
+    Z = np.dot(X,W)-np.dot(L,V)-np.dot(H,U)+1e-9 
+    S = A2/Z
+    R = X*np.dot(S,W.T)-L*np.dot(S,V.T)-H*np.dot(S,U.T)
+    return R
+def relpropPool(A2,A1,ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1]):
+    Z = tf.nn.max_pool(A1 ,ksize, strides, padding='SAME' )+1e-9
+    S = A2/Z
+    A2zero = A2 *0
+    for i,j in [(0,0),(0,1),(1,0),(1,1)]:
+        A2zero[[:,i::2,j::2,:]] += S * 0.5
+    C = A2zero
+    R = A1 * C
+    return R
+def relpropConv(A2,A1,W,strides=[1, 1, 1, 1]):
+    W_pos =np.maximum(0,W)
+    Z = tf.nn.conv2d(A1 ,W_pos ,strides ,padding='SAME')+1e-9
+    S = A2/Z
+    C = tf.nn.conv2d_backprop_input(tf.shape(A1), W_pos, S, strides, padding='SAME')
+    R = A1 * C
+    return R
+def relpropConv0(A2,A1,W, strides=[1, 2, 2, 1]):
+    lowest =0
+    highest =1
+    W_neg = np.minimum(0,W)
+    W_pos = np.maximum(0,W)
+    X ,L ,H = A1, A1*0+lowest ,A1*0+highest
+    Z = tf.nn.conv2d(X, W, strides, padding='SAME')   -   tf.nn.conv2d(L, W_pos, strides, padding='SAME')   -   tf.nn.conv2d(H, W_neg, strides, padding='SAME')+1e-9
+    S = A2/Z
+    C = tf.nn.conv2d_backprop_input(tf.shape(A1), W, S, strides, padding='SAME')
+    C_pos = tf.nn.conv2d_backprop_input(tf.shape(A1), W_pos, S, strides, padding='SAME')
+    C_neg = tf.nn.conv2d_backprop_input(tf.shape(A1), W_neg, S, strides, padding='SAME')
+    R = X * C - L * C_pos - H * C_neg
+    return R
